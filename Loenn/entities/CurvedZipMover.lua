@@ -5,6 +5,38 @@ local drawableRectangle = require("structs.drawable_rectangle")
 local utils = require("utils")
 local atlases = require("atlases")
 
+easeTypes = {
+    "None",
+    "Linear",
+    "SineIn",
+    "SineOut",
+    "SineInOut",
+    "QuadIn",
+    "QuadOut",
+    "QuadInOut",
+    "CubeIn",
+    "CubeOut",
+    "CubeInOut",
+    "QuintIn",
+    "QuintOut",
+    "QuintInOut",
+    "ExpoIn",
+    "ExpoOut",
+    "ExpoInOut",
+    "BackIn",
+    "BackOut",
+    "BackInOut",
+    "BigBackIn",
+    "BigBackOut",
+    "BigBackInOut",
+    "ElasticIn",
+    "ElasticOut",
+    "ElasticInOut",
+    "BounceIn",
+    "BounceOut",
+    "BounceInOut"
+}
+
 local curvedZipMover = {}
 
 local function themeTextures(entity)
@@ -44,15 +76,65 @@ curvedZipMover.placements = {
         velocityReturn = 15.0,
         returnToStart = true,
         drawBlackBorder = false,
+        easing = "SineIn",
+        easingReturn = "SineIn"
     }
 }
 
 curvedZipMover.fieldInformation = {
+    spritePath = {
+        fieldType = "string",
+        allowEmpty = false
+    },
+    soundEvent = {
+        fieldType = "string",
+        allowEmpty = false
+    },
     ropeColor = {
-        fieldType = "color"
+        fieldType = "color",
+        allowEmpty = false
     },
     ropeLightColor = {
-        fieldType = "color"
+        fieldType = "color",
+        allowEmpty = false
+    },
+    velocity = {
+        fieldType = "number",
+        allowEmpty = false,
+        minimumValue = 0.0
+    },
+    velocityReturn = {
+        fieldType = "number",
+        allowEmpty = false,
+        minimumValue = 0.0
+    },
+    returnToStart = {
+        fieldType = "boolean",
+        allowEmpty = false,
+    },
+    drawBlackBorder = {
+        fieldType = "boolean",
+        allowEmpty = false,
+    },
+    easing = {
+        fieldType = "list",
+        elementOptions = {
+            options = easeTypes,
+            editable = false
+        },
+        minimumElements = 1,
+        maximumElements = 1,
+        allowEmpty = false
+    },
+    easingReturn = {
+        fieldType = "list",
+        elementOptions = {
+            options = easeTypes,
+            editable = false
+        },
+        minimumElements = 1,
+        maximumElements = 1,
+        allowEmpty = false
     }
 }
 

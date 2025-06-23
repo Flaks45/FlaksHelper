@@ -19,6 +19,7 @@ namespace Celeste.Mod.FlaksHelper.Entities
         private string soundEvent;
 
         private float percent;
+        private string easing, easingReturn;
         private bool drawBlackBorder;
 
         public static ParticleType P_Scrape = ZipMover.P_Scrape;
@@ -156,7 +157,23 @@ namespace Celeste.Mod.FlaksHelper.Entities
         }
 
 
-        public CurvedZipMover(Vector2 position, int width, int height, List<Vector2> controlPoints, Vector2 target, string spritePath, string soundEvent, Color ropeColor, Color ropeLightColor, float velocity, float velocityReturn, bool returnToStart, bool drawBlackBorder)
+        public CurvedZipMover(
+            Vector2 position, 
+            int width, 
+            int height, 
+            List<Vector2> controlPoints, 
+            Vector2 target, 
+            string spritePath, 
+            string soundEvent, 
+            Color ropeColor, 
+            Color ropeLightColor, 
+            float velocity, 
+            float velocityReturn, 
+            bool returnToStart, 
+            bool drawBlackBorder,
+            string easing,
+            string easingReturn
+        )
             : base(position, width, height, safe: false)
         {
             base.Depth = -9999;
@@ -172,6 +189,8 @@ namespace Celeste.Mod.FlaksHelper.Entities
             this.velocityReturn = velocityReturn;
             this.returnToStart = returnToStart;
             this.drawBlackBorder = drawBlackBorder;
+            this.easing = easing;
+            this.easingReturn = easingReturn;
 
             string path = $"{spritePath}light";
             string id = $"{spritePath}block";
@@ -216,7 +235,9 @@ namespace Celeste.Mod.FlaksHelper.Entities
                 data.Float("velocity", 60.0f),
                 data.Float("velocityReturn", 15.0f),
                 data.Bool("returnToStart", true),
-                data.Bool("drawBlackBorder", false)
+                data.Bool("drawBlackBorder", false),
+                data.String("easing", "SineIn"),
+                data.String("easingReturn", "SineIn")
             )
         {
         }
@@ -419,7 +440,7 @@ namespace Celeste.Mod.FlaksHelper.Entities
                 {
                     yield return null;
                     at2 = Calc.Approach(at2, 1f, 2.0f * speedMultiplier * Engine.DeltaTime);
-                    percent = Ease.SineIn(at2);
+                    percent = EasingTypeFromString(easing)(at2);
 
                     Vector2 bezier = CalcBezierPoint(bezierPoints, percent);
 
@@ -447,7 +468,7 @@ namespace Celeste.Mod.FlaksHelper.Entities
                     {
                         yield return null;
                         at2 = Calc.Approach(at2, 1f, 2.0f * returnSpeedMultiplier * Engine.DeltaTime);
-                        percent = 1f - Ease.SineIn(at2);
+                        percent = 1f - EasingTypeFromString(easingReturn)(at2);
 
                         Vector2 bezier = CalcBezierPoint(bezierPoints, percent);
 
@@ -493,5 +514,41 @@ namespace Celeste.Mod.FlaksHelper.Entities
             return tempPoints[0];
         }
 
+        private Ease.Easer EasingTypeFromString(string str)
+        {
+            switch (str)
+            {
+                case "None": return Ease.Linear;
+                case "Linear": return Ease.Linear;
+                case "SineIn": return Ease.SineIn;
+                case "SineOut": return Ease.SineOut;
+                case "SineInOut": return Ease.SineInOut;
+                case "QuadIn": return Ease.QuadIn;
+                case "QuadOut": return Ease.QuadOut;
+                case "QuadInOut": return Ease.QuadInOut;
+                case "CubeIn": return Ease.CubeIn;
+                case "CubeOut": return Ease.CubeOut;
+                case "CubeInOut": return Ease.CubeInOut;
+                case "QuintIn": return Ease.QuintIn;
+                case "QuintOut": return Ease.QuintOut;
+                case "QuintInOut": return Ease.QuintInOut;
+                case "ExpoIn": return Ease.ExpoIn;
+                case "ExpoOut": return Ease.ExpoOut;
+                case "ExpoInOut": return Ease.ExpoInOut;
+                case "BackIn": return Ease.BackIn;
+                case "BackOut": return Ease.BackOut;
+                case "BackInOut": return Ease.BackInOut;
+                case "BigBackIn": return Ease.BigBackIn;
+                case "BigBackOut": return Ease.BigBackOut;
+                case "BigBackInOut": return Ease.BigBackInOut;
+                case "ElasticIn": return Ease.ElasticIn;
+                case "ElasticOut": return Ease.ElasticOut;
+                case "ElasticInOut": return Ease.ElasticInOut;
+                case "BounceIn": return Ease.BounceIn;
+                case "BounceOut": return Ease.BounceOut;
+                case "BounceInOut": return Ease.BounceInOut;
+                default: return Ease.Linear;
+            }
+        }
     }
 }
