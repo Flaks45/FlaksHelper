@@ -103,7 +103,7 @@ namespace Celeste.Mod.FlaksHelper.Entities
                 float rotation = mover.percent * MathF.PI * 2f;
 
                 List<Vector2> bezierPoints = new List<Vector2> { from };
-                bezierPoints.AddRange(controlPoints.Select(cp => cp + new Vector2(0f, 8f)));
+                bezierPoints.AddRange(controlPoints.Select(cp => cp + new Vector2(mover.Width / 2.0f, mover.Height / 2.0f)));
                 bezierPoints.Add(to);
 
                 for (int i = 0; i < segments; i++)

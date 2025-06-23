@@ -1,5 +1,6 @@
 # FlaksHelper
 Hey there! I made this helper for collab coding requests and my own projects. If you need anything or want to report a bug, just DM me on Discord.
+> Current version: 0.1.2
 
 ## Current Entities
 - **Curved Zip Mover**  
