@@ -1,5 +1,5 @@
 - Name: FlaksHelper
-  Version: 0.1.2
+  Version: 0.1.3
   DLL: bin/FlaksHelper.dll
   Dependencies:
     - Name: EverestCore
