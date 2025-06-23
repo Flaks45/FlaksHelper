@@ -29,7 +29,7 @@ curvedZipMover.name = "FlaksHelper/CurvedZipMover"
 curvedZipMover.depth = -9999
 curvedZipMover.nodeVisibility = "never"
 curvedZipMover.nodeLineRenderType = "line"
-curvedZipMover.nodeLimits = {2, 2}
+curvedZipMover.nodeLimits = {2, -1}
 curvedZipMover.minimumSize = {16, 16}
 curvedZipMover.placements = {
     name = "Curved Zip Mover",
@@ -56,12 +56,25 @@ curvedZipMover.fieldInformation = {
     }
 }
 
-local function quadraticBezier(p0, p1, p2, t)
-    local oneMinusT = 1 - t
-    local x = oneMinusT * oneMinusT * p0[1] + 2 * oneMinusT * t * p1[1] + t * t * p2[1]
-    local y = oneMinusT * oneMinusT * p0[2] + 2 * oneMinusT * t * p1[2] + t * t * p2[2]
-    return {x, y}
+local function bezierPoint(points, t)
+    local n = #points
+    local temp = {}
+
+    for i = 1, n do
+        temp[i] = {points[i][1], points[i][2]}
+    end
+
+    -- De Casteljau's algorithm
+    for r = 1, n - 1 do
+        for i = 1, n - r do
+            temp[i][1] = (1 - t) * temp[i][1] + t * temp[i + 1][1]
+            temp[i][2] = (1 - t) * temp[i][2] + t * temp[i + 1][2]
+        end
+    end
+
+    return temp[1]
 end
+
 
 local function perpendicularOffset(p0, p1, distance)
     local dx = p1[1] - p0[1]
@@ -78,25 +91,25 @@ local function perpendicularOffset(p0, p1, distance)
     }
 end
 
-local function getOffsetBezierPoints(p0, p1, p2, segments, offset)
+local function getOffsetBezierPoints(controlPoints, segments, offset)
     local pointsLeft = {}
     local pointsRight = {}
 
     for i = 0, segments do
         local t = i / segments
-        local point = quadraticBezier(p0, p1, p2, t)
+        local point = bezierPoint(controlPoints, t)
 
         local dirStart, dirEnd
 
         if i == 0 then
             dirStart = point
-            dirEnd = quadraticBezier(p0, p1, p2, (i + 1) / segments)
+            dirEnd = bezierPoint(controlPoints, (i + 1) / segments)
         elseif i == segments then
-            dirStart = quadraticBezier(p0, p1, p2, (i - 1) / segments)
+            dirStart = bezierPoint(controlPoints, (i - 1) / segments)
             dirEnd = point
         else
-            local prev = quadraticBezier(p0, p1, p2, (i - 1) / segments)
-            local next = quadraticBezier(p0, p1, p2, (i + 1) / segments)
+            local prev = bezierPoint(controlPoints, (i - 1) / segments)
+            local next = bezierPoint(controlPoints, (i + 1) / segments)
             dirStart = prev
             dirEnd = next
         end
@@ -114,22 +127,16 @@ local function getOffsetBezierPoints(p0, p1, p2, segments, offset)
 end
 
 
-
-local function addNodeSprites(sprites, entity, cogTexture, centerX, centerY, centerNodeX, centerNodeY)
+local function addNodeSprites(sprites, entity, cogTexture, controlPoints)
+    local lastPoint = controlPoints[#controlPoints]
     local nodeCogSprite = drawableSprite.fromTexture(cogTexture, entity)
-    nodeCogSprite:setPosition(centerNodeX, centerNodeY)
+    nodeCogSprite:setPosition(lastPoint[1], lastPoint[2])
     nodeCogSprite:setJustification(0.5, 0.5)
-
-    local controlX = (centerX + centerNodeX) / 2
-    local controlY = (centerY + centerNodeY) / 2 - 12  
 
     local segments = 24
     local offset = 4
-    local p0 = {centerX, centerY}
-    local p1 = {controlX, controlY}
-    local p2 = {centerNodeX, centerNodeY}
 
-    local leftPoints, rightPoints = getOffsetBezierPoints(p0, p1, p2, segments, offset)
+    local leftPoints, rightPoints = getOffsetBezierPoints(controlPoints, segments, offset)
 
     local leftLine = drawableLine.fromPoints(leftPoints, entity.ropeColor or defaultRopeColor, 1)
     leftLine.depth = 5000
@@ -169,7 +176,6 @@ local function addBlockSprites(sprites, entity, blockTexture, lightsTexture, x, 
     table.insert(sprites, lightsSprite)
 end
 
-
 function curvedZipMover.sprite(room, entity)
     local sprites = {}
 
@@ -178,18 +184,29 @@ function curvedZipMover.sprite(room, entity)
     local halfWidth, halfHeight = math.floor(width / 2), math.floor(height / 2)
 
     local nodes = entity.nodes or {}
+    local numNodes = #nodes
 
-    if #nodes < 2 then
+    if numNodes < 1 then
         return sprites
     end
 
-    local centerX, centerY = x + halfWidth, y + halfHeight
-    local controlX, controlY = nodes[1].x + halfWidth, nodes[1].y + halfHeight
-    local destX, destY = nodes[2].x + halfWidth, nodes[2].y + halfHeight
-
-
     local textures = themeTextures(entity)
     local cogTexture = textures.nodeCog
+
+    local controlPoints = {
+        {x + halfWidth, y + halfHeight}
+    }
+
+    if numNodes > 1 then
+        for i = 1, numNodes - 1 do
+            local node = nodes[i]
+            table.insert(controlPoints, {node.x + halfWidth, node.y + halfHeight})
+        end
+    end
+
+    local destNode = nodes[numNodes]
+    local destX, destY = destNode.x + halfWidth, destNode.y + halfHeight
+    table.insert(controlPoints, {destX, destY})
 
     local destCogSprite = drawableSprite.fromTexture(cogTexture, entity)
     destCogSprite:setPosition(destX, destY)
@@ -198,13 +215,9 @@ function curvedZipMover.sprite(room, entity)
 
     local segments = 24
     local offset = 4
-    local p0 = {centerX, centerY}
-    local p1 = {controlX, controlY}
-    local p2 = {destX, destY}
-
-    local leftPoints, rightPoints = getOffsetBezierPoints(p0, p1, p2, segments, offset)
-
     local ropeColor = entity.ropeColor or defaultRopeColor
+
+    local leftPoints, rightPoints = getOffsetBezierPoints(controlPoints, segments, offset)
 
     local leftLine = drawableLine.fromPoints(leftPoints, ropeColor, 1)
     leftLine.depth = 5000

@@ -4,13 +4,15 @@ using Monocle;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Celeste.Mod.FlaksHelper.Entities
 {
     [CustomEntity("FlaksHelper/CurvedZipMover")]
     public class CurvedZipMover : Solid
     {
-        private Vector2 start, target, control;
+        private Vector2 start, target;
+        private List<Vector2> controlPoints;
         private float velocity, velocityReturn;
         private bool returnToStart;
         private string spritePath;
@@ -39,7 +41,8 @@ namespace Celeste.Mod.FlaksHelper.Entities
 
             private MTexture cog;
 
-            private Vector2 from, to, control;
+            private Vector2 from, to;
+            private List<Vector2> controlPoints;
 
             private Vector2 sparkAdd;
             private float sparkDirFromA, sparkDirFromB, sparkDirToA, sparkDirToB;
@@ -50,7 +53,7 @@ namespace Celeste.Mod.FlaksHelper.Entities
                 mover = curvedZipMover;
                 from = mover.start + new Vector2(mover.Width / 2f, mover.Height / 2f);
                 to = mover.target + new Vector2(mover.Width / 2f, mover.Height / 2f);
-                control = mover.control;
+                controlPoints = mover.controlPoints;
                 sparkAdd = (from - to).SafeNormalize(5f).Perpendicular();
                 float num = (from - to).Angle();
                 sparkDirFromA = num + MathF.PI / 8f;
@@ -79,10 +82,19 @@ namespace Celeste.Mod.FlaksHelper.Entities
                 }
             }
 
-            private Vector2 CalcQuadraticBezier(Vector2 p0, Vector2 p1, Vector2 p2, float t)
+            private Vector2 CalcBezierAt(List<Vector2> points, float t)
             {
-                float oneMinusT = 1f - t;
-                return oneMinusT * oneMinusT * p0 + 2f * oneMinusT * t * p1 + t * t * p2;
+                List<Vector2> temp = new List<Vector2>(points);
+                int count = temp.Count;
+                while (count > 1)
+                {
+                    for (int i = 0; i < count - 1; i++)
+                    {
+                        temp[i] = Vector2.Lerp(temp[i], temp[i + 1], t);
+                    }
+                    count--;
+                }
+                return temp[0];
             }
 
             private void DrawCogs(Vector2 offset, Color? colorOverride = null)
@@ -90,15 +102,17 @@ namespace Celeste.Mod.FlaksHelper.Entities
                 const int segments = 60;
                 float rotation = mover.percent * MathF.PI * 2f;
 
-                Vector2 visualControl = control + new Vector2(0f, 8f);
+                List<Vector2> bezierPoints = new List<Vector2> { from };
+                bezierPoints.AddRange(controlPoints.Select(cp => cp + new Vector2(0f, 8f)));
+                bezierPoints.Add(to);
 
                 for (int i = 0; i < segments; i++)
                 {
                     float t0 = i / (float)segments;
                     float t1 = (i + 1) / (float)segments;
 
-                    Vector2 p0 = CalcQuadraticBezier(from, visualControl, to, t0);
-                    Vector2 p1 = CalcQuadraticBezier(from, visualControl, to, t1);
+                    Vector2 p0 = CalcBezierAt(bezierPoints, t0);
+                    Vector2 p1 = CalcBezierAt(bezierPoints, t1);
 
                     Vector2 dir = (p1 - p0).SafeNormalize();
                     Vector2 perp = dir.Perpendicular();
@@ -110,12 +124,12 @@ namespace Celeste.Mod.FlaksHelper.Entities
                 float spacing = 4f;
                 float startOffset = 4f - (mover.percent * MathF.PI * 8f % 4f);
                 float distanceAccum = 0f;
-                Vector2 prev = CalcQuadraticBezier(from, visualControl, to, 0f);
+                Vector2 prev = CalcBezierAt(bezierPoints, 0f);
 
                 for (int i = 1; i <= segments; i++)
                 {
                     float t = i / (float)segments;
-                    Vector2 current = CalcQuadraticBezier(from, visualControl, to, t);
+                    Vector2 current = CalcBezierAt(bezierPoints, t);
                     float segmentLength = (current - prev).Length();
                     distanceAccum += segmentLength;
 
@@ -135,20 +149,20 @@ namespace Celeste.Mod.FlaksHelper.Entities
 
                     prev = current;
                 }
-
                 cog.DrawCentered(from + offset, colorOverride ?? Color.White, 1f, rotation);
                 cog.DrawCentered(to + offset, colorOverride ?? Color.White, 1f, rotation);
             }
+
         }
 
 
-        public CurvedZipMover(Vector2 position, int width, int height, Vector2 control, Vector2 target, string spritePath, string soundEvent, Color ropeColor, Color ropeLightColor, float velocity, float velocityReturn, bool returnToStart, bool drawBlackBorder)
+        public CurvedZipMover(Vector2 position, int width, int height, List<Vector2> controlPoints, Vector2 target, string spritePath, string soundEvent, Color ropeColor, Color ropeLightColor, float velocity, float velocityReturn, bool returnToStart, bool drawBlackBorder)
             : base(position, width, height, safe: false)
         {
             base.Depth = -9999;
 
             start = Position;
-            this.control = control;
+            this.controlPoints = controlPoints;
             this.target = target;
             this.spritePath = spritePath;
             this.soundEvent = soundEvent;
@@ -193,14 +207,14 @@ namespace Celeste.Mod.FlaksHelper.Entities
                 data.Position + offset,
                 data.Width,
                 data.Height,
-                data.Nodes[0] + offset,
-                data.Nodes[1] + offset,
+                data.Nodes.SkipLast(1).Select(n => n + offset).ToList(),
+                data.Nodes.Last() + offset,
                 data.Attr("spritePath", "objects/zipmover/"),
                 data.Attr("soundEvent", "event:/game/01_forsaken_city/zip_mover"),
                 Calc.HexToColor(data.Attr("ropeColor", "663931")), 
                 Calc.HexToColor(data.Attr("ropeLightColor", "9b6157")),
                 data.Float("velocity", 60.0f),
-                data.Float("returnVelocity", 15.0f),
+                data.Float("velocityReturn", 15.0f),
                 data.Bool("returnToStart", true),
                 data.Bool("drawBlackBorder", false)
             )
@@ -378,7 +392,11 @@ namespace Celeste.Mod.FlaksHelper.Entities
 
         private IEnumerator Sequence()
         {
-            Vector2 start = Position;
+            List<Vector2> bezierPoints = new List<Vector2>();
+            bezierPoints.Add(start);
+            bezierPoints.AddRange(controlPoints);
+            bezierPoints.Add(target);
+
             while (true)
             {
                 if (!HasPlayerRider())
@@ -403,7 +421,7 @@ namespace Celeste.Mod.FlaksHelper.Entities
                     at2 = Calc.Approach(at2, 1f, 2.0f * speedMultiplier * Engine.DeltaTime);
                     percent = Ease.SineIn(at2);
 
-                    Vector2 bezier = CalcQuadraticBezier(start, control, target, percent);
+                    Vector2 bezier = CalcBezierPoint(bezierPoints, percent);
 
                     ScrapeParticlesCheck(bezier);
                     if (Scene.OnInterval(0.1f))
@@ -431,7 +449,7 @@ namespace Celeste.Mod.FlaksHelper.Entities
                         at2 = Calc.Approach(at2, 1f, 2.0f * returnSpeedMultiplier * Engine.DeltaTime);
                         percent = 1f - Ease.SineIn(at2);
 
-                        Vector2 bezier = CalcQuadraticBezier(start, control, target, percent);
+                        Vector2 bezier = CalcBezierPoint(bezierPoints, percent);
 
                         MoveTo(bezier);
                     }
@@ -458,12 +476,22 @@ namespace Celeste.Mod.FlaksHelper.Entities
             return (x % m + m) % m;
         }
 
-        private Vector2 CalcQuadraticBezier(Vector2 p0, Vector2 p1, Vector2 p2, float t)
+        private Vector2 CalcBezierPoint(List<Vector2> points, float t)
         {
-            float oneMinusT = 1f - t;
-            return (oneMinusT * oneMinusT) * p0
-                 + (2f * oneMinusT * t) * p1
-                 + (t * t) * p2;
+            List<Vector2> tempPoints = new List<Vector2>(points);
+            int count = tempPoints.Count;
+
+            while (count > 1)
+            {
+                for (int i = 0; i < count - 1; i++)
+                {
+                    tempPoints[i] = Vector2.Lerp(tempPoints[i], tempPoints[i + 1], t);
+                }
+                count--;
+            }
+
+            return tempPoints[0];
         }
+
     }
 }
